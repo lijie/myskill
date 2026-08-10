@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bootstrap Linux Dev Environment"
+  short_description: "Install a reusable terminal-first Linux development environment"
+  default_prompt: "Set up this Linux machine as a terminal-first Rust, Go, C/C++, Emacs, tmux, and coding-agent development environment. Detect the distro, preserve existing config, install current stable tools from official sources, and verify everything."
