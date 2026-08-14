@@ -1,0 +1,4 @@
+interface:
+  display_name: "Bootstrap macOS Dev Environment"
+  short_description: "Set up a safe Homebrew-first macOS developer workstation"
+  default_prompt: "Use $bootstrap-macos-dev to audit and safely initialize this macOS machine as a Homebrew-first Fish, Ghostty, Rust, Go, Emacs, Colima, and coding-agent development environment."
