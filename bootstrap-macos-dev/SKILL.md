@@ -1,6 +1,6 @@
 ---
 name: bootstrap-macos-dev
-description: Bootstrap, refresh, or audit a terminal-first macOS development workstation using Homebrew as the default package source, with Xcode Command Line Tools, Fish, Ghostty, tmux, CLI and GUI Emacs, current stable Rust and Go, Node/npm, Colima, modern command-line utilities, and coding-agent-oriented quality and security tools. Use when preparing a new Apple Silicon or Intel Mac, standardizing an existing Mac development environment, checking PATH/provider conflicts, or safely adding missing tools without deleting existing software. Exclude macOS/kernel upgrades, account login, credentials, and destructive cleanup unless separately requested.
+description: Bootstrap, refresh, or audit a terminal-first macOS development workstation using Homebrew as the default package source, with Xcode Command Line Tools, a reproducible Fish/Tide/fzf shell experience, Ghostty Catppuccin styling and cursor shaders, tmux, CLI and GUI Emacs, current stable Rust and Go, Node/npm, Colima, modern command-line utilities, and coding-agent-oriented quality and security tools. Use when preparing a new Apple Silicon or Intel Mac, reproducing the originating Mac's terminal appearance and behavior, standardizing an existing Mac development environment, checking PATH/provider conflicts, or safely adding missing tools without deleting existing software. Exclude macOS/kernel upgrades, account login, credentials, and destructive cleanup unless separately requested.
 ---
 
 # Bootstrap macOS Development Environment
@@ -18,6 +18,7 @@ Build a reproducible Homebrew-first macOS environment while preserving the machi
 - Do not install Tencent-internal or other private-registry packages by default.
 - Do not run a blanket `brew upgrade` by default. Install missing packages and report outdated packages separately.
 - Back up existing Fish, Ghostty, Emacs, tmux, Git, and other dotfiles before changing them. Never silently replace configuration.
+- Treat bundled Fish and Ghostty assets as managed configuration. If a target differs, stop and show the conflict; replace it only after explicit approval and a timestamped backup.
 - Do not log in to GitHub, npm, container registries, AI services, or other accounts; do not create keys or tokens.
 - Do not make Fish the login shell without explicit approval. Before `chsh`, add the Homebrew Fish path to `/etc/shells` if necessary and report that this requires elevated privileges.
 - Preserve both Homebrew `emacs` and the `emacs-app` cask when present: they serve terminal and GUI use cases. Do not remove either to resolve a conflict without approval.
@@ -61,6 +62,15 @@ scripts/bootstrap.sh --profile core|full|agent
 
 The script installs only missing packages, never uninstalls packages, and does not run a blanket upgrade. Use `--dry-run` to inspect commands. Use `--yes` only after reviewing the plan.
 
+For `full` and `agent`, apply the bundled terminal experience separately after package installation:
+
+```bash
+scripts/install-terminal-config.sh --dry-run
+scripts/install-terminal-config.sh
+```
+
+Use `--force` only after reviewing differing target files. It backs up every replaced managed file under `~/.config/bootstrap-macos-dev-backups/<timestamp>/`.
+
 Mainstream npm-distributed AI CLIs are opt-in even in the `agent` profile:
 
 ```bash
@@ -87,26 +97,39 @@ Run `brew doctor` and report warnings. Do not “fix” warnings by deleting fil
 
 ### 4. Configure Fish and Ghostty
 
-Use native Fish configuration rather than installing a large shell framework.
+Reproduce the originating Fish experience using the bundled assets:
 
-Recommended Fish integrations:
+- `assets/fish/config.fish`: interactive `eza` aliases for `ls`, `ll`, and `la`;
+- `assets/fish/homebrew-paths.fish`: architecture-aware Homebrew initialization and stable user-tool PATH ordering;
+- `assets/fish/fish_plugins`: Fisher, Tide v6, fzf.fish, z, autopair, and zoxide.fish;
+- `assets/fish/tide-settings.fish`: portable Tide colors, icons, layout, transient prompt, language segments, and Colima-aware Docker context settings.
 
-```fish
-fish_add_path --prepend ~/.local/bin ~/.cargo/bin ~/go/bin
-zoxide init fish | source
-direnv hook fish | source
-```
+Install the plugin manifest through Fisher rather than copying generated plugin files. Do not copy `fish_variables`: it contains generated caches and machine-specific absolute paths. Apply only the curated universal variables from `tide-settings.fish`.
 
-Add Homebrew's `bin` and `sbin` ahead of package-vendored paths. Do not globally replace standard commands in scripts or non-interactive shells. Prefer interactive abbreviations when aliases are requested.
+The current plugin set intentionally contains both `z` and `zoxide.fish`; zoxide wins the `z` function at runtime, matching the originating machine. Preserve this behavior for parity unless the user asks to simplify it.
 
-Fisher is optional, not required. Install it only when a requested plugin needs it.
+The Tide prompt uses Powerline and Nerd Font glyphs. Ghostty's default macOS font fallback currently renders the originating setup; if glyphs are missing on another Mac, install a Nerd Font only after confirming the desired font and then set `font-family` explicitly.
 
-Install Ghostty through its Homebrew cask when absent. Preserve and inspect both common configuration locations:
+Add Homebrew's `bin` and `sbin` ahead of package-vendored paths. Do not globally replace standard commands in scripts or non-interactive shells.
+
+Install Ghostty through its Homebrew cask when absent. The bundled active configuration reproduces:
+
+- Homebrew Fish as the spawned shell, with the architecture-specific Homebrew prefix rendered at installation time;
+- the `Catppuccin Mocha` theme;
+- left Option as Meta;
+- two layered cursor shaders (`cursor_warp.glsl` and the customized `cursor_frozen.glsl`);
+- continuous shader animation.
+
+The shader assets live under `assets/ghostty/shaders/`; preserve `assets/ghostty/NOTICE.md` with their provenance.
+
+Preserve and inspect both common configuration locations:
 
 - `~/.config/ghostty/config`
 - `~/Library/Application Support/com.mitchellh.ghostty/config`
 
-Do not overwrite either. If both exist, determine Ghostty's active configuration and report the relationship before editing.
+Do not overwrite either silently. Ghostty can load both locations depending on version/history, which may layer duplicate shader settings. Use `ghostty +show-config` when available to inspect the effective configuration. The installer manages `~/.config/ghostty/config`; report the Application Support config separately and require approval before replacing or removing it.
+
+If the Application Support config contains active settings, the terminal installer stops unless `--force` is supplied. Even with `--force`, it preserves that alternate file and reports it; inspect the effective result for duplicated or overridden settings.
 
 ### 5. Install language environments
 
@@ -183,6 +206,8 @@ Also:
 - compile and execute a small C program with Apple Clang;
 - build small Rust and Go programs when those toolchains are in the profile;
 - start Fish non-interactively and inspect PATH/provider resolution;
+- verify Fisher plugins, Tide prompt variables, eza aliases, and effective `z`/`zi` functions;
+- inspect Ghostty's effective theme, shell, Option-key behavior, and both shader paths;
 - run Emacs batch mode and identify the executable/provider;
 - validate tmux config with an isolated server;
 - run Colima/Docker checks without starting or reconfiguring Colima unless approved;

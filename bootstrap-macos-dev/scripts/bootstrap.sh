@@ -171,7 +171,8 @@ cat <<EOF
 
 Installation pass complete.
 - No packages were removed, unlinked, cleaned, or blanket-upgraded.
+- For full/agent terminal parity, review and run scripts/install-terminal-config.sh --dry-run.
 - Run scripts/audit.sh and scripts/verify.sh --profile $profile.
-- Configure Homebrew PATH, Fish, Ghostty, and dotfiles only after backing up existing files.
+- The terminal-config installer stops on conflicts unless --force is explicitly supplied; forced replacements are backed up.
 - Changing the login shell, starting/reconfiguring Colima, and any cleanup require separate approval.
 EOF

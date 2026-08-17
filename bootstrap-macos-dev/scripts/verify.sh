@@ -91,6 +91,36 @@ if [[ $profile == full || $profile == agent ]]; then
   echo "=== Fish ==="
   fish -c 'printf "fish=%s\n" $version; type -a rg; type -a rustc' || fail=1
   [[ -f "$HOME/.config/fish/config.fish" ]] && fish -n "$HOME/.config/fish/config.fish" || true
+  fish -ic '
+    functions -q fisher
+    and functions -q tide
+    and functions -q fzf_configure_bindings
+    and functions -q _autopair_backspace
+    and functions -q __zoxide_z
+    and type -q z
+    and type -q zi
+    and alias ls | string match -q "*eza*"
+    and contains vi_mode $tide_left_prompt_items
+    and contains git $tide_left_prompt_items
+    and contains status $tide_right_prompt_items
+    and contains time $tide_right_prompt_items
+  ' || { echo "MISSING or mismatched bundled Fish experience"; fail=1; }
+
+  echo "=== Ghostty experience ==="
+  ghostty_bin="$(command -v ghostty 2>/dev/null || true)"
+  [[ -n "$ghostty_bin" ]] || [[ ! -x /Applications/Ghostty.app/Contents/MacOS/ghostty ]] || ghostty_bin=/Applications/Ghostty.app/Contents/MacOS/ghostty
+  if [[ -n "$ghostty_bin" ]]; then
+    ghostty_effective="$("$ghostty_bin" +show-config 2>/dev/null || true)"
+    grep -Fq 'theme = Catppuccin Mocha' <<< "$ghostty_effective" || { echo "MISMATCH Ghostty theme"; fail=1; }
+    grep -Fq "command = $(brew --prefix)/bin/fish" <<< "$ghostty_effective" || { echo "MISMATCH Ghostty Fish command"; fail=1; }
+    grep -Fq 'macos-option-as-alt = left' <<< "$ghostty_effective" || { echo "MISMATCH Ghostty Option/Meta setting"; fail=1; }
+    grep -Fq "$HOME/.config/ghostty/shaders/cursor_warp.glsl" <<< "$ghostty_effective" || { echo "MISSING Ghostty warp shader"; fail=1; }
+    grep -Fq "$HOME/.config/ghostty/shaders/cursor_frozen.glsl" <<< "$ghostty_effective" || { echo "MISSING Ghostty frozen shader"; fail=1; }
+    grep -Fq 'custom-shader-animation = always' <<< "$ghostty_effective" || { echo "MISMATCH Ghostty shader animation"; fail=1; }
+  else
+    echo "MISSING Ghostty executable"
+    fail=1
+  fi
 
   echo "=== Emacs ==="
   emacs --batch -Q --eval '(princ (format "emacs=%s window-system=%S executable=%s\n" emacs-version window-system invocation-name))' || fail=1

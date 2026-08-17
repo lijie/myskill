@@ -1,0 +1,14 @@
+# Reproduce the originating Ghostty experience.
+# Fish is installed by Homebrew under different prefixes on Apple Silicon and
+# Intel, so scripts/install-terminal-config.sh replaces the placeholder.
+command = __HOMEBREW_PREFIX__/bin/fish
+theme = "Catppuccin Mocha"
+
+# Treat the left Option key as Meta while keeping the right Option key
+# available for macOS input methods and special characters.
+macos-option-as-alt = left
+
+# Layer the upstream warp trail with the customized frozen/blaze effect.
+custom-shader = ~/.config/ghostty/shaders/cursor_warp.glsl
+custom-shader = ~/.config/ghostty/shaders/cursor_frozen.glsl
+custom-shader-animation = always

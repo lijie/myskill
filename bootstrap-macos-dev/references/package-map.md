@@ -14,6 +14,9 @@ Prefer Homebrew unless the ecosystem's official mainstream workflow is more appr
 | Data formats | system `jq`; Homebrew `yq` | Keep system `jq` unless a requirement needs a newer one |
 | Shell and multiplexer | `fish`, `tmux` | Homebrew formulae |
 | Terminal | `ghostty` | Homebrew cask |
+| Fish plugin manager and prompt | Fisher + `ilancosman/tide@v6` | Official Git repositories, installed from bundled `fish_plugins` |
+| Fish interaction plugins | `patrickf1/fzf.fish`, `jorgebucaran/autopair.fish`, `jethrokuan/z`, `kidonng/zoxide.fish` | Fisher from official Git repositories |
+| Ghostty appearance | Catppuccin Mocha plus bundled shaders | Built-in Ghostty theme and skill assets |
 | Emacs CLI | `emacs`, `libvterm` | Homebrew formulae |
 | Emacs GUI | `emacs-app` | Homebrew cask; preserve alongside formula Emacs |
 | Rust | official `rustup` | Do not install Homebrew `rust` on a fresh machine |

@@ -125,6 +125,33 @@ paths=(
 )
 for path in "${paths[@]}"; do [[ -e "$path" || -L "$path" ]] && ls -ld "$path"; done
 
+section "Fish experience"
+if command -v fish >/dev/null 2>&1; then
+  fish -ic '
+    printf "fish_key_bindings=%s\n" "$fish_key_bindings"
+    printf "fish_plugins=%s\n" (string join "," $_fisher_plugins)
+    printf "left_prompt=%s\n" (string join "," $tide_left_prompt_items)
+    printf "right_prompt=%s\n" (string join "," $tide_right_prompt_items)
+    functions --details fish_prompt
+    type -a z
+    type -a zi
+    alias ls 2>/dev/null
+    alias ll 2>/dev/null
+    alias la 2>/dev/null
+  ' 2>/dev/null || true
+fi
+
+section "Ghostty effective experience"
+ghostty_bin="$(command -v ghostty 2>/dev/null || true)"
+[[ -n "$ghostty_bin" ]] || [[ ! -x /Applications/Ghostty.app/Contents/MacOS/ghostty ]] || ghostty_bin=/Applications/Ghostty.app/Contents/MacOS/ghostty
+if [[ -n "$ghostty_bin" ]]; then
+  printf 'ghostty=%s\n' "$ghostty_bin"
+  "$ghostty_bin" +show-config 2>/dev/null |
+    grep -E '^(command|theme|font-family|font-size|macos-option-as-alt|custom-shader|custom-shader-animation) =' || true
+else
+  echo "ghostty=MISSING"
+fi
+
 section "Container status (no start)"
 command -v colima >/dev/null 2>&1 && colima status 2>/dev/null || true
 command -v docker >/dev/null 2>&1 && docker context show 2>/dev/null || true

@@ -22,8 +22,8 @@ Install only the selected profile and requested optional components. Existing ex
 
 | Tool | Purpose | Preferred channel |
 |---|---|---|
-| Fish | Interactive shell | Homebrew |
-| Ghostty | Native terminal emulator | Homebrew cask |
+| Fish | Interactive shell with bundled eza aliases and Fisher-managed Tide/fzf/autopair/z/zoxide experience | Homebrew plus `assets/fish/` |
+| Ghostty | Native terminal emulator with bundled Catppuccin Mocha styling and layered cursor shaders | Homebrew cask plus `assets/ghostty/` |
 | tmux | Persistent terminal multiplexer | Homebrew |
 | Emacs | Terminal editor | Homebrew formula |
 | Emacs.app | GUI editor | `emacs-app` cask |
@@ -70,6 +70,17 @@ Install only with explicit opt-in and only after verifying official package name
 - agent-browser
 
 Never infer that an existing private/internal npm package should be reproduced on another Mac.
+
+## Bundled terminal experience
+
+The skill carries portable, reviewed configuration assets rather than raw machine state:
+
+- Fish's `config.fish`, portable Homebrew/user-tool PATH initialization, and `fish_plugins`;
+- a curated Tide universal-variable script;
+- Ghostty's active configuration template;
+- the active `cursor_warp.glsl` and customized `cursor_frozen.glsl` shaders.
+
+Do not bundle Fish's generated functions/completions, `fish_variables`, z/zoxide databases, Ghostty auto-theme state, or a nested shader Git repository. Recreate plugins from the manifest and copy only the active shader files.
 
 ## Existing-machine preferences worth preserving
 
