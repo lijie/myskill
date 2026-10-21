@@ -23,7 +23,7 @@ done < <(status)
 
 if (( changed )); then
   echo "确认无误后：git add external && git commit -m 'bump external skills'"
-  echo "如有新增/删除的 skill，记得更新 external.txt 并运行 scripts/link.sh"
+  echo "已安装到工程的 skill 用 scripts/skill status/update <project> 同步"
 else
   echo "外部仓库均已是最新。"
 fi

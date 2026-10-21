@@ -1,0 +1,254 @@
+#!/usr/bin/env bash
+# 从本仓库（skill 容器）挑选 skill 安装到指定工程目录。兼容 macOS 自带 bash 3.2。
+#
+#   skill list [pattern]
+#   skill install   [opts] <project> <skill>...
+#   skill uninstall [opts] <project> <skill>...
+#   skill status    [opts] <project>
+#   skill update    [opts] <project> [skill...]
+#
+# <skill> 可以是 skill 名（如 tdd），也可以是相对仓库根的路径；
+# 路径指向的目录若不含 SKILL.md，则安装其下所有 skill（如 external/mattpocock__skills/skills/engineering）。
+#
+# opts:
+#   --agent claude|codex|claude,codex   安装到 .claude/skills 和/或 .agents/skills（默认 claude）
+#   --dir <rel-dir>                     自定义工程内的 skills 目录（覆盖 --agent）
+#   --link                              软链接到本仓库而非复制（仅 install）
+#   --force                             覆盖未受管理的同名目录 / 本地修改过的副本
+#
+# 安装记录写在 <project>/<skills-dir>/.myskill.lock，每行：
+#   name  source  commit  checksum  mode
+set -euo pipefail
+
+ROOT=$(cd "$(dirname "$0")/.." && pwd -P)
+LOCK=.myskill.lock
+
+die() { echo "error: $*" >&2; exit 1; }
+warn() { echo "warn: $*" >&2; }
+
+usage() { sed -n '2,23p' "$0" | sed 's/^# \{0,1\}//'; exit "${1:-0}"; }
+
+# 所有可用 skill 的路径（相对 ROOT）
+all_skills() {
+  (cd "$ROOT" && find skills external -name SKILL.md -not -path '*/.git/*' -exec dirname {} \; | LC_ALL=C sort)
+}
+
+# skill 名或路径 -> 一个或多个 skill 路径
+resolve() {
+  local arg=${1%/} p matches
+  if [[ $arg == */* ]]; then
+    p=${arg#"$ROOT"/}
+    [[ -d $ROOT/$p ]] || die "路径不存在：$arg"
+    if [[ -f $ROOT/$p/SKILL.md ]]; then echo "$p"; return; fi
+    matches=$(all_skills | grep -E "^$p/" || true)
+    [[ -n $matches ]] || die "$arg 下没有 skill"
+    echo "$matches"
+    return
+  fi
+  matches=$(all_skills | awk -F/ -v n="$arg" '$NF == n')
+  [[ -n $matches ]] || die "找不到 skill：${arg}（用 skill list 查看）"
+  [[ $(echo "$matches" | wc -l) -eq 1 ]] || die "skill 名 $arg 有歧义，请用路径指定：
+$matches"
+  echo "$matches"
+}
+
+checksum() {
+  (cd "$1" && find . -type f -not -name .DS_Store -print0 | LC_ALL=C sort -z | xargs -0 shasum -a 256) | shasum -a 256 | cut -c1-12
+}
+
+src_commit() {
+  git -C "$ROOT/$1" log -1 --format=%h -- . 2>/dev/null || echo -
+}
+
+description() {
+  awk '/^---$/{n++; next} n==1 && /^description:/{sub(/^description: */,""); print; exit}' "$1/SKILL.md"
+}
+
+# ---- lock 文件操作 ----
+lock_get() { [[ -f $1/$LOCK ]] && awk -F'\t' -v n="$2" '$1 == n' "$1/$LOCK" || true; }
+lock_del() {
+  [[ -f $1/$LOCK ]] || return 0
+  awk -F'\t' -v n="$2" '$1 != n' "$1/$LOCK" > "$1/$LOCK.tmp" && mv "$1/$LOCK.tmp" "$1/$LOCK"
+  [[ -s $1/$LOCK ]] || rm "$1/$LOCK"
+}
+lock_put() {
+  lock_del "$1" "$2"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$2" "$3" "$4" "$5" "$6" >> "$1/$LOCK"
+  LC_ALL=C sort -o "$1/$LOCK" "$1/$LOCK"
+}
+
+# ---- 参数解析 ----
+AGENTS=claude DIR= LINK=0 FORCE=0 ARGS=()
+parse_opts() {
+  while (( $# )); do
+    case $1 in
+      --agent) AGENTS=${2:?}; shift 2
+        [[ ,$AGENTS, =~ ^(,(claude|codex))+,$ ]] || die "未知 agent：${AGENTS}（claude|codex）" ;;
+      --dir) DIR=${2:?}; shift 2 ;;
+      --link) LINK=1; shift ;;
+      --force) FORCE=1; shift ;;
+      -h|--help) usage ;;
+      -*) die "未知选项：$1" ;;
+      *) ARGS+=("$1"); shift ;;
+    esac
+  done
+}
+
+# 工程内的 skills 目录（绝对路径），每行一个
+target_dirs() {
+  local project=$1 a
+  if [[ -n $DIR ]]; then echo "$project/$DIR"; return; fi
+  for a in $(echo "$AGENTS" | tr ',' ' '); do
+    case $a in
+      claude) echo "$project/.claude/skills" ;;
+      codex) echo "$project/.agents/skills" ;;
+      *) die "未知 agent：${a}（claude|codex）" ;;
+    esac
+  done
+}
+
+project_dir() {
+  [[ -n ${1:-} ]] || usage 1
+  [[ -d $1 ]] || die "工程目录不存在：$1"
+  (cd "$1" && pwd -P)
+}
+
+# 本地副本是否被改过
+modified() {
+  local dest=$1 entry=$2 mode sum
+  mode=$(echo "$entry" | cut -f5)
+  sum=$(echo "$entry" | cut -f4)
+  [[ $mode == copy && -d $dest && $(checksum "$dest") != "$sum" ]]
+}
+
+install_one() {
+  local tdir=$1 src=$2 name dest entry
+  name=$(basename "$src")
+  dest=$tdir/$name
+  entry=$(lock_get "$tdir" "$name")
+  if [[ -e $dest || -L $dest ]]; then
+    if [[ -z $entry ]] && (( ! FORCE )); then
+      warn "$dest 已存在且不是本工具安装的，跳过（--force 覆盖）"; return
+    fi
+    if [[ -n $entry ]] && modified "$dest" "$entry" && (( ! FORCE )); then
+      warn "$dest 有本地修改，跳过（--force 覆盖）"; return
+    fi
+    rm -rf "$dest"
+  fi
+  mkdir -p "$tdir"
+  if (( LINK )); then
+    ln -s "$ROOT/$src" "$dest"
+    lock_put "$tdir" "$name" "$src" "$(src_commit "$src")" - link
+    echo "linked    $dest -> $src"
+  else
+    cp -R "$ROOT/$src" "$dest"
+    lock_put "$tdir" "$name" "$src" "$(src_commit "$src")" "$(checksum "$dest")" copy
+    echo "installed $dest  ($src)"
+  fi
+}
+
+# ---- 子命令 ----
+cmd_list() {
+  local p
+  all_skills | grep -i -- "${1:-}" | while read -r p; do
+    printf '%-28s %s\n' "$(basename "$p")" "$p"
+    printf '%-28s   %s\n' "" "$(description "$ROOT/$p" | cut -c1-100)"
+  done
+}
+
+cmd_install() {
+  parse_opts "$@"
+  (( ${#ARGS[@]} >= 2 )) || usage 1
+  local project tdir arg src out srcs=()
+  project=$(project_dir "${ARGS[0]}")
+  for arg in "${ARGS[@]:1}"; do
+    out=$(resolve "$arg") || exit 1
+    for src in $out; do srcs+=("$src"); done
+  done
+  for tdir in $(target_dirs "$project"); do
+    for src in "${srcs[@]}"; do install_one "$tdir" "$src"; done
+  done
+}
+
+cmd_uninstall() {
+  parse_opts "$@"
+  (( ${#ARGS[@]} >= 2 )) || usage 1
+  local project tdir name entry
+  project=$(project_dir "${ARGS[0]}")
+  for tdir in $(target_dirs "$project"); do
+    for name in "${ARGS[@]:1}"; do
+      entry=$(lock_get "$tdir" "$name")
+      if [[ -z $entry ]]; then warn "$tdir/$name 不是本工具安装的，跳过"; continue; fi
+      if modified "$tdir/$name" "$entry" && (( ! FORCE )); then
+        warn "$tdir/$name 有本地修改，跳过（--force 删除）"; continue
+      fi
+      rm -rf "${tdir:?}/$name"
+      lock_del "$tdir" "$name"
+      echo "removed   $tdir/$name"
+    done
+  done
+}
+
+# 输出：name src state，state ∈ ok|outdated|modified|conflict|missing|source-missing|linked
+skill_state() {
+  local tdir=$1 entry=$2 name src mode sum local_mod=0 up_mod=0
+  name=$(echo "$entry" | cut -f1); src=$(echo "$entry" | cut -f2)
+  sum=$(echo "$entry" | cut -f4); mode=$(echo "$entry" | cut -f5)
+  if [[ ! -e $tdir/$name ]]; then echo missing; return; fi
+  if [[ ! -f $ROOT/$src/SKILL.md ]]; then echo source-missing; return; fi
+  if [[ $mode == link ]]; then echo linked; return; fi
+  [[ $(checksum "$tdir/$name") != "$sum" ]] && local_mod=1
+  [[ $(checksum "$ROOT/$src") != "$sum" ]] && up_mod=1
+  case $local_mod$up_mod in
+    00) echo ok ;; 01) echo outdated ;; 10) echo modified ;; 11) echo conflict ;;
+  esac
+}
+
+cmd_status() {
+  parse_opts "$@"
+  (( ${#ARGS[@]} == 1 )) || usage 1
+  local project tdir entry
+  project=$(project_dir "${ARGS[0]}")
+  for tdir in $(target_dirs "$project"); do
+    echo "== ${tdir#"$project"/}"
+    if [[ ! -f $tdir/$LOCK ]]; then echo "  （无）"; continue; fi
+    while IFS= read -r entry; do
+      printf '  %-28s %-15s %s@%s\n' "$(echo "$entry" | cut -f1)" "$(skill_state "$tdir" "$entry")" \
+        "$(echo "$entry" | cut -f2)" "$(echo "$entry" | cut -f3)"
+    done < "$tdir/$LOCK"
+  done
+}
+
+cmd_update() {
+  parse_opts "$@"
+  (( ${#ARGS[@]} >= 1 )) || usage 1
+  local project tdir entry entries name src mode state only=" ${ARGS[*]:1} "
+  project=$(project_dir "${ARGS[0]}")
+  for tdir in $(target_dirs "$project"); do
+    [[ -f $tdir/$LOCK ]] || continue
+    entries=$(cat "$tdir/$LOCK")  # 安装过程中会改写 lock，先取快照
+    while IFS= read -r entry; do
+      name=$(echo "$entry" | cut -f1); src=$(echo "$entry" | cut -f2); mode=$(echo "$entry" | cut -f5)
+      [[ $only == "  " || $only == *" $name "* ]] || continue
+      state=$(skill_state "$tdir" "$entry")
+      case $state in
+        ok|linked) ;;
+        source-missing) warn "${name}：源 $src 已不存在（上游删除或改名？），保留现有副本" ;;
+        modified|conflict)
+          if (( FORCE )); then (LINK=0; install_one "$tdir" "$src")
+          else warn "$name 有本地修改，跳过（--force 覆盖）"; fi ;;
+        outdated|missing) (LINK=$([[ $mode == link ]] && echo 1 || echo 0); install_one "$tdir" "$src") ;;
+      esac
+    done <<< "$entries"
+  done
+}
+
+case ${1:-} in
+  list) shift; cmd_list "$@" ;;
+  install) shift; cmd_install "$@" ;;
+  uninstall) shift; cmd_uninstall "$@" ;;
+  status) shift; cmd_status "$@" ;;
+  update) shift; cmd_update "$@" ;;
+  -h|--help|help|'') usage ;;
+  *) die "未知命令：$1" ;;
+esac

@@ -19,7 +19,7 @@ else
 fi
 
 echo
-echo "已添加 $dest（跟踪分支 $branch）。其中的 skill："
+echo "已添加 ${dest}（跟踪分支 ${branch}）。其中的 skill："
 (cd "$dest" && find . -name SKILL.md -not -path './.git/*' -exec dirname {} \; | sed "s#^\.#$dest#" | sort)
 echo
-echo "把要启用的路径加入 external.txt，然后运行 scripts/link.sh"
+echo "用 scripts/skill install <project> <skill>... 安装到工程"
