@@ -1,0 +1,42 @@
+# 要启用的外部 skill，每行一个目录（相对仓库根，目录内需有 SKILL.md）。
+# 以 # 开头的行被忽略；改完后运行 scripts/link.sh。
+
+# mattpocock/skills
+external/mattpocock__skills/skills/engineering/ask-matt
+external/mattpocock__skills/skills/engineering/code-review
+external/mattpocock__skills/skills/engineering/codebase-design
+external/mattpocock__skills/skills/engineering/diagnosing-bugs
+external/mattpocock__skills/skills/engineering/domain-modeling
+external/mattpocock__skills/skills/engineering/grill-with-docs
+external/mattpocock__skills/skills/engineering/implement
+external/mattpocock__skills/skills/engineering/implement-spec
+external/mattpocock__skills/skills/engineering/improve-codebase-architecture
+external/mattpocock__skills/skills/engineering/pr
+external/mattpocock__skills/skills/engineering/prototype
+external/mattpocock__skills/skills/engineering/research
+external/mattpocock__skills/skills/engineering/retro
+external/mattpocock__skills/skills/engineering/setup-matt-pocock-skills
+external/mattpocock__skills/skills/engineering/tdd
+external/mattpocock__skills/skills/engineering/to-spec
+external/mattpocock__skills/skills/engineering/to-tickets
+external/mattpocock__skills/skills/engineering/triage
+external/mattpocock__skills/skills/engineering/wayfinder
+external/mattpocock__skills/skills/engineering/wizard
+# external/mattpocock__skills/skills/in-progress/chief-of-staff
+# external/mattpocock__skills/skills/in-progress/claude-handoff
+# external/mattpocock__skills/skills/in-progress/loop-me
+# external/mattpocock__skills/skills/in-progress/setup-ts-deep-modules
+# external/mattpocock__skills/skills/in-progress/writing-beats
+# external/mattpocock__skills/skills/in-progress/writing-fragments
+# external/mattpocock__skills/skills/in-progress/writing-shape
+external/mattpocock__skills/skills/misc/git-guardrails-claude-code
+external/mattpocock__skills/skills/misc/migrate-to-shoehorn
+external/mattpocock__skills/skills/misc/scaffold-exercises
+external/mattpocock__skills/skills/misc/setup-pre-commit
+external/mattpocock__skills/skills/productivity/grill-me
+external/mattpocock__skills/skills/productivity/grilling
+external/mattpocock__skills/skills/productivity/handoff
+external/mattpocock__skills/skills/productivity/teach
+external/mattpocock__skills/skills/productivity/to-questionnaire
+external/mattpocock__skills/skills/productivity/wait-what
+external/mattpocock__skills/skills/productivity/writing-for-agents

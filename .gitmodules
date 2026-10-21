@@ -1,0 +1,4 @@
+[submodule "external/mattpocock__skills"]
+	path = external/mattpocock__skills
+	url = https://github.com/mattpocock/skills
+	branch = main
